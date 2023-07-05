@@ -24,9 +24,9 @@
 
 #include "RenderUtils.h"
 #include "UnrealClient.h"
-#include <functional
+#include <functional>
 
-#include "Misc/CoreDelegates.h">
+#include "Misc/CoreDelegates.h"
 
 #include "AnselFunctionLibrary.h"
 #include <AnselSDK.h>
