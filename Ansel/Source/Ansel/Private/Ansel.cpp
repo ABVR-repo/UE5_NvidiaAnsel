@@ -21,6 +21,8 @@
 #include "RenderResource.h"
 #include "Interfaces/IPluginManager.h"
 
+#include "Misc/CoreDelegates.h"
+
 #include <functional>
 
 #include "AnselFunctionLibrary.h"
@@ -593,6 +595,9 @@ bool FNVAnselCameraPhotographyPrivate::UpdateCamera(FMinimalViewInfo& InOutPOV, 
 			PCMgr->OnPhotographyMultiPartCaptureStart();
 			bGameCameraCutThisFrame = true;
 			bAnselCaptureNewlyActive = false;
+
+			// ABVR - we do want to override ScreenPercentage because we artifically decrease it when the menu is up before we kick off the render (useExistingPriority needs to be true to overwrite SetByConsole)
+			SetCapturedCVar("r.ScreenPercentage", 100, false, true);
 		}
 
 		if (bAnselCaptureNewlyFinished)
@@ -600,6 +605,9 @@ bool FNVAnselCameraPhotographyPrivate::UpdateCamera(FMinimalViewInfo& InOutPOV, 
 			bGameCameraCutThisFrame = true;
 			bAnselCaptureNewlyFinished = false;
 			PCMgr->OnPhotographyMultiPartCaptureEnd();
+
+			// ABVR - need to reset back to previous SP (the 0 is ignored, it'll go back to what it was previously)
+			SetCapturedCVar("r.ScreenPercentage", 0, true, true);
 		}
 
 		if (bAnselSessionWantDeactivate)
@@ -1132,6 +1140,8 @@ ansel::StartSessionStatus FNVAnselCameraPhotographyPrivate::AnselStartSessionCal
 		AnselSessionStatus = ansel::kAllowed;
 	}
 
+	FCoreDelegates::ABVRAnselSessionStart.Broadcast(); // ABVR send this event to BP so we can read it (global event delegate)
+
 	UE_LOG(LogAnsel, Log, TEXT("Photography camera session attempt started, Allowed=%d, ForceDisallowed=%d"), int(AnselSessionStatus == ansel::kAllowed), int(PrivateImpl->bForceDisallow));
 
 	return AnselSessionStatus;
@@ -1151,6 +1161,8 @@ void FNVAnselCameraPhotographyPrivate::AnselStopSessionCallback(void* userPointe
 		PrivateImpl->bAnselSessionWantDeactivate = true;
 	}
 
+	FCoreDelegates::ABVRAnselSessionEnd.Broadcast(); // ABVR send this event to BP so we can read it (global event delegate)
+
 	UE_LOG(LogAnsel, Log, TEXT("Photography camera session end"));
 }
 
@@ -1162,6 +1174,8 @@ void FNVAnselCameraPhotographyPrivate::AnselStartCaptureCallback(const ansel::Ca
 	PrivateImpl->bAnselCaptureNewlyActive = true;
 	PrivateImpl->AnselCaptureInfo = CaptureInfo;
 
+	FCoreDelegates::ABVRAnselCaptureStart.Broadcast(); // ABVR send this event to BP so we can read it (global event delegate)
+
 	UE_LOG(LogAnsel, Log, TEXT("Photography camera multi-part capture started"));
 }
 
@@ -1171,6 +1185,8 @@ void FNVAnselCameraPhotographyPrivate::AnselStopCaptureCallback(void* userPointe
 	check(PrivateImpl != nullptr);
 	PrivateImpl->bAnselCaptureActive = false;
 	PrivateImpl->bAnselCaptureNewlyFinished = true;
+
+	FCoreDelegates::ABVRAnselCaptureEnd.Broadcast(); // ABVR send this event to BP so we can read it (global event delegate)
 
 	UE_LOG(LogAnsel, Log, TEXT("Photography camera multi-part capture end"));
 }
@@ -1193,6 +1209,9 @@ void FNVAnselCameraPhotographyPrivate::ReconfigureAnsel()
 	AnselConfig->startCaptureCallback = AnselStartCaptureCallback;
 	AnselConfig->stopCaptureCallback = AnselStopCaptureCallback;
 	AnselConfig->changeQualityCallback = AnselChangeQualityCallback;
+	// ABVR - added so we have the true name of the projet in the title, not just Unreal Engine Demo. 
+	// Actually, there seems to be a Geforce game profile that leads to Unreal Engine Demo, which overrides our settings here...
+	AnselConfig->titleNameUtf8 = TCHAR_TO_UTF8(FApp::GetProjectName());
 
 	// Getting fovType wrong can lead to multi-part captures stitching incorrectly, especially 360 shots
 	AnselConfig->fovType = RequiredFovType;
@@ -1249,7 +1268,7 @@ public:
 		ICameraPhotographyModule::StartupModule();
 		check(!bAnselDLLLoaded);
 
-		// Late-load Ansel DLL.  DLL name has been worked out by the build scripts as ANSEL_DLL
+		// Late-load Ansel DLL.  DLL name has been worked out by the build scripts as ANSEL_DLL asdf
 		FString AnselDLLName;
 		FString AnselBinariesRoot = FPaths::FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("Ansel"))->GetBaseDir(),TEXT("/Binaries/ThirdParty/"));
 		// common preprocessor fudge to convert macro expansion into string
