@@ -1,0 +1,4 @@
+Ansel/Binaries/*
+!Ansel/Binaries/ThirdParty/
+Ansel/Intermediate/
+Ansel/Config/
