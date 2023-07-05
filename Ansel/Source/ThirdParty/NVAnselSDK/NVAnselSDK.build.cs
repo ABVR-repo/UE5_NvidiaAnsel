@@ -19,7 +19,6 @@ public class NVAnselSDK : ModuleRules
 			
 			PublicDelayLoadDLLs.Add("AnselSDK64.dll");
 			RuntimeDependencies.Add("$(PluginDir)/Binaries/ThirdParty/AnselSDK64.dll");
-			//这里是添加的变量
 			PublicDefinitions.Add("WITH_ANSEL=1");
 			PublicDefinitions.Add("ANSEL_DLL=" + "AnselSDK64.dll");
 		}
